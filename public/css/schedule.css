@@ -98,8 +98,6 @@
     gap: 8px;
 }
 
-/* ברירת מחדל – ללא אפקט hover למשתמש רגיל */
-.class-card:hover {}
 
 /* אפקט hover רק לכרטיסים של אדמין (נקבע ב-JS עם admin-hover) */
 .class-card.admin-hover:hover {
@@ -194,6 +192,17 @@
 .register-btn.registered:hover {
     background-color: #c0392b;
     border-color: #a93226;
+}
+
+.register-btn,
+.register-btn-waitlist,
+.register-btn.registered {
+    display: block;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Responsive adjustment */
