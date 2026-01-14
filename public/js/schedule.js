@@ -1,6 +1,7 @@
 let currentWeekOffset = 0;
 let fetchedClasses = [];
 let currentManagingClassId = null;
+let maxClassDate = null; // התאריך המאוחר ביותר שיש בו שיעור
 
 const role = sessionStorage.getItem('userRole');
 const isAdmin = (role === 'admin');
@@ -31,7 +32,9 @@ function checkUrlForDate() {
 checkUrlForDate();
 
 document.addEventListener('DOMContentLoaded', function () {
-    loadData();
+    loadMaxClassDate().then(() => {
+        loadData();
+    });
 
     const addBtn = document.getElementById('btn-add-class-mode');
     if (addBtn) addBtn.onclick = () => openModal();
@@ -58,6 +61,21 @@ function formatDateForInput(dateData) {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+// טוען את התאריך המאוחר ביותר שיש עבורו שיעור
+async function loadMaxClassDate() {
+    try {
+        const res = await fetch('/api/max-class-date');
+        const data = await res.json();
+        if (data.maxDate) {
+            maxClassDate = data.maxDate; // "YYYY-MM-DD"
+        } else {
+            maxClassDate = null;
+        }
+    } catch (e) {
+        maxClassDate = null;
+    }
 }
 
 function loadData() {
@@ -99,12 +117,54 @@ function renderSchedule(classes, notices) {
     const addClassBtn = document.getElementById('btn-add-class-mode');
     if (addClassBtn) addClassBtn.style.display = isAdmin ? 'block' : 'none';
 
+   // כפתור אדמין: יצירת שיעורים לשבוע שמוצג כרגע
+const genNextWeekBtn = document.getElementById('btn-generate-next-week');
+if (genNextWeekBtn) {
+    genNextWeekBtn.style.display = isAdmin ? 'block' : 'none';
+    genNextWeekBtn.onclick = () => {
+        showConfirm(
+            'האם ליצור מערכת שעות לשבוע המוצג כעת?',
+            function onConfirm() {
+                // חישוב תחילת השבוע שמוצג כרגע (יום ראשון)
+                const today = new Date();
+                const baseDate = new Date();
+                baseDate.setDate(today.getDate() + (currentWeekOffset * 7));
+                const startOfWeek = new Date(baseDate);
+                startOfWeek.setDate(baseDate.getDate() - baseDate.getDay());
+                startOfWeek.setHours(0, 0, 0, 0);
+
+                fetch('/admin/generate-week-range', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        startDate: formatDateForInput(startOfWeek) // שולחים רק תחילת שבוע
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        loadMaxClassDate().then(() => loadData());
+                    } else {
+                        showMessage(data.message || 'שגיאה ביצירת מערכת השעות לשבוע זה');
+                    }
+                })
+                .catch(() => {
+                    showMessage('שגיאה ביצירת מערכת השעות לשבוע זה');
+                });
+            },
+            function onCancel() {}
+        );
+    };
+}
+
+    // קובע תאריכים + שם יום לכל עמודה
     setWeeklyDates();
-    for (let i = 0; i <= 6; i++) {
+
+    // מנקה כל העמודות
+    for (let i = 0; i <= 5; i++) {
         const el = document.getElementById(`day-content-${i}`);
         if (el) {
             el.innerHTML = '';
-            if (i === 6) el.innerHTML = '<p class="text-center mt-3 text-muted">מנוחה</p>';
         }
     }
 
@@ -115,13 +175,18 @@ function renderSchedule(classes, notices) {
         membershipType === 'gym_2perweek' ||
         membershipType === 'zoom';
 
-    for (let i = 0; i <= 6; i++) {
+    // ***** לולאת ימים ראשון–שישי *****
+    for (let i = 0; i <= 5; i++) {
         const dayContainer = document.getElementById(`day-content-${i}`);
         if (!dayContainer) continue;
-        const columnDate = dayContainer.getAttribute('data-date');
 
-        const relevantClasses = classes.filter(c => formatDateForInput(c.class_date) === columnDate);
-        relevantClasses.sort((a, b) => a.start_time.localeCompare(b.start_time));
+        // שם היום לעמודה (ראשון/שני/...)
+        const columnDayName = dayContainer.getAttribute('data-dayname');
+
+        // סינון לפי יום בשבוע מה‑DB
+        const relevantClasses = classes
+            .filter(c => c.day_of_week === columnDayName)
+            .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
         relevantClasses.forEach(cls => {
             const isZoom = !!cls.zoom;
@@ -147,7 +212,7 @@ function renderSchedule(classes, notices) {
                     } else if (userStatus === 'waitlist') {
                         actionHtml = `
                             <div class="waitlist-info">את/ה במקום ה ${cls.waitlist_position} ברשימת המתנה </div>
-                            <button class="register-btn-waitlist" onclick="cancelRegistration(${cls.id})">ביטול המתנה</button>
+                            <button class="register-btn-wwaitlist" onclick="cancelRegistration(${cls.id})">ביטול המתנה</button>
                         `;
                     } else {
                         if (!isZoom && isFull) {
@@ -193,7 +258,7 @@ function renderSchedule(classes, notices) {
                 <div class="class-time fw-bold" style="direction:ltr;">${timeRange}</div>
                 <div class="class-name">${cls.class_name}</div>
                 <div class="class-instructor small text-muted">${cls.instructor}</div>
-                <div class="class-details mt-1 d-flex justify-content-between align-items-center">
+                <div class="class-details mt-1 d-flex justify-content-between	align-items-center">
                     ${countDisplay}
                     ${zoomHtml}
                 </div>
@@ -447,6 +512,8 @@ function showParticipants(element, classId) {
         });
 }
 
+// ========= חישוב שבוע וציון שם היום לכל עמודה =========
+
 function setWeeklyDates() {
     const today = new Date();
     const currentViewDate = new Date();
@@ -454,7 +521,9 @@ function setWeeklyDates() {
     const startOfWeek = new Date(currentViewDate);
     startOfWeek.setDate(currentViewDate.getDate() - currentViewDate.getDay());
 
-    for (let i = 0; i < 7; i++) {
+    const daysNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
+
+    for (let i = 0; i < 6; i++) {
         let loopDate = new Date(startOfWeek);
         loopDate.setDate(startOfWeek.getDate() + i);
         let dateStringDisplay = loopDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' });
@@ -462,12 +531,37 @@ function setWeeklyDates() {
         if (element) element.textContent = dateStringDisplay;
         const formattedDate = formatDateForInput(loopDate);
         const dayContent = document.getElementById(`day-content-${i}`);
-        if (dayContent) dayContent.setAttribute('data-date', formattedDate);
+        if (dayContent) {
+            dayContent.setAttribute('data-date', formattedDate);
+            dayContent.setAttribute('data-dayname', daysNames[i]); // שם יום לעמודה
+        }
     }
 }
 
 function changeWeek(direction) {
+    // למי שאינו אדמין – לא לעבור מעבר לשבוע האחרון שיש בו שיעור
+    if (!isAdmin && direction > 0 && maxClassDate) {
+        const today = new Date();
+        const targetViewDate = new Date();
+        targetViewDate.setDate(today.getDate() + ((currentWeekOffset + direction) * 7));
+        const startOfWeek = new Date(targetViewDate);
+        startOfWeek.setDate(targetViewDate.getDate() - targetViewDate.getDay());
+        const weekEnd = new Date(startOfWeek);
+        weekEnd.setDate(startOfWeek.getDate() + 6);
+        const weekEndStr = formatDateForInput(weekEnd);
+
+        if (weekEndStr > maxClassDate) {
+            return; // למשתמש רגיל – לא לזוז קדימה לשבוע ריק
+        }
+    }
+
     currentWeekOffset += direction;
+    loadData();
+}
+
+// כפתור "שבוע נוכחי" – מחזיר לתצוגה של השבוע של היום
+function goToCurrentWeek() {
+    currentWeekOffset = 0;
     loadData();
 }
 
@@ -539,7 +633,6 @@ function submitClassForm() {
     })
         .then(res => res.json()).then(data => {
             if (data.success) {
-                showMessage(data.message || 'נשמר בהצלחה');
                 const modalEl = document.getElementById('classModal');
                 const modalInstance = bootstrap.Modal.getInstance(modalEl);
                 if (modalInstance) modalInstance.hide();

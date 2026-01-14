@@ -29,9 +29,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --- 3. סיום הטעינה ---
     Promise.all(loadPromises).then(() => {
-        
+
         // --- השינוי הגדול: בדיקת חיבור לפני עדכון הכפתור ---
-        restoreSessionIfNeeded(); 
+        restoreSessionIfNeeded();
         // ---------------------------------------------------
 
         // גלילה לאלמנט ספציפי אם יש בכתובת #
@@ -55,13 +55,13 @@ async function restoreSessionIfNeeded() {
         try {
             const res = await fetch('/api/check-session');
             const data = await res.json();
-            
+
             if (data.isLoggedIn) {
                 sessionStorage.setItem('userId', data.user.id);
                 sessionStorage.setItem('userFirstName', data.user.firstName);
                 sessionStorage.setItem('userRole', data.user.role);
                 sessionStorage.setItem('isLoggedIn', 'true');
-                
+
                 if (data.user.membershipType) {
                     localStorage.setItem('userMembershipType', data.user.membershipType);
                 }
@@ -70,7 +70,7 @@ async function restoreSessionIfNeeded() {
             console.log("No session to restore");
         }
     }
-    
+
     updateSingleAuthButton();
 }
 
@@ -90,24 +90,24 @@ function updateSingleAuthButton() {
         authBtn.href = "#";
 
         authBtn.onclick = function (event) {
-            event.preventDefault(); 
-            
+            event.preventDefault();
+
             // כאן במקום confirm משתמשים ב-popup הגלובלי
             showConfirm('האם את/ה רוצה להתנתק ?', function () {
                 fetch('/logout')
                     .then(() => {
                         sessionStorage.clear();
-                        localStorage.removeItem('userMembershipType'); 
-                        window.location.href = "index.html"; 
+                        localStorage.removeItem('userMembershipType');
+                        window.location.href = "index.html";
                     });
             });
         };
 
-    // === מצב אורח ===
+        // === מצב אורח ===
     } else {
         authBtn.textContent = 'הרשמה / התחברות';
         authBtn.href = "login.html";
-        authBtn.onclick = null; 
+        authBtn.onclick = null;
     }
 
     if (document.body.id === 'page_login') {
@@ -117,13 +117,18 @@ function updateSingleAuthButton() {
 
 /* -------- Global popup message helper (used instead of alert) -------- */
 function showMessage(text) {
-    const overlay = document.getElementById('global-message-overlay');
-    const msgText = document.getElementById('global-message-text');
-    const okBtn   = document.getElementById('global-message-ok');
+    const overlay   = document.getElementById('global-message-overlay');
+    const msgText   = document.getElementById('global-message-text');
+    const okBtn     = document.getElementById('global-message-ok');
+    const cancelBtn = document.getElementById('global-message-cancel');
 
     if (!overlay || !msgText || !okBtn) return;
 
     msgText.textContent = text;
+
+    // הודעה רגילה – לא צריך כפתור ביטול
+    if (cancelBtn) cancelBtn.style.display = 'none';
+
     overlay.classList.remove('msg-hidden');
 
     okBtn.onclick = function () {
@@ -133,13 +138,16 @@ function showMessage(text) {
 
 // פונקציית אישור/ביטול עם אותו popup גלובלי
 function showConfirm(text, onConfirm, onCancel) {
-    const overlay = document.getElementById('global-message-overlay');
-    const msgText = document.getElementById('global-message-text');
-    const okBtn   = document.getElementById('global-message-ok');
+    const overlay   = document.getElementById('global-message-overlay');
+    const msgText   = document.getElementById('global-message-text');
+    const okBtn     = document.getElementById('global-message-ok');
+    const cancelBtn = document.getElementById('global-message-cancel');
 
-    if (!overlay || !msgText || !okBtn) return;
+    if (!overlay || !msgText || !okBtn || !cancelBtn) return;
 
     msgText.textContent = text;
+    cancelBtn.style.display = 'inline-block';
+
     overlay.classList.remove('msg-hidden');
 
     okBtn.onclick = function () {
@@ -149,17 +157,15 @@ function showConfirm(text, onConfirm, onCancel) {
         }
     };
 
-    overlay.onclick = function (e) {
-        if (e.target === overlay) {
-            overlay.classList.add('msg-hidden');
-            overlay.onclick = null;
-            if (typeof onCancel === 'function') {
-                onCancel();
-            }
+    cancelBtn.onclick = function () {
+        overlay.classList.add('msg-hidden');
+        if (typeof onCancel === 'function') {
+            onCancel();
         }
     };
 }
 
 // לחשוף את הפונקציות כך שקבצים אחרים יוכלו להשתמש בהן
-window.showMessage = showMessage;
-window.showConfirm = showConfirm;
+window.showMessage  = showMessage;
+window.showConfirm  = showConfirm;
+window.restoreSessionIfNeeded = restoreSessionIfNeeded;

@@ -30,22 +30,56 @@ VALUES ('mutsnik@gmail.com', 'michal68', 'מיכל', 'אבידן', '0546202296',
 -- יצירת טבלת שיעורים (עם המפתח המורכב שבחרנו)
 
 CREATE TABLE classes (
-  id INT AUTO_INCREMENT PRIMARY KEY,    
+  id INT AUTO_INCREMENT PRIMARY KEY,
   class_name VARCHAR(100) NOT NULL,
   class_date DATE NOT NULL,
   day_of_week VARCHAR(20) NOT NULL,
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
   instructor VARCHAR(45) DEFAULT 'מיכל',
-  zoom BOOLEAN DEFAULT false,
-  max_participants INT DEFAULT 10,4
+  zoom TINYINT(1) DEFAULT 0,
+  max_participants INT DEFAULT 8,
   current_participants INT DEFAULT 0,
-  
-  UNIQUE KEY unique_class_time (class_date, start_time) 
+  UNIQUE KEY unique_class_time (class_date, start_time)
 );
+
 
 -- הכנסת נתונים לבדיקה
 INSERT INTO classes (class_date, start_time, end_time, class_name, day_of_week, zoom) VALUES 
+
+--יצירת טבלת פריסט
+CREATE TABLE IF NOT EXISTS classes_templates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  day_of_week ENUM('ראשון','שני','שלישי','רביעי','חמישי','שישי') NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  default_name VARCHAR(100) NOT NULL DEFAULT 'פילאטיס מזרן קלאסי',
+  default_max_participants INT NOT NULL DEFAULT 8,
+  default_zoom TINYINT(1) NOT NULL DEFAULT 0
+);
+
+INSERT INTO classes_templates
+(day_of_week, start_time, end_time, default_name, default_max_participants, default_zoom)
+VALUES
+('ראשון','18:00:00','19:00:00','פילאטיס מזרן קלאסי',8,0),
+('ראשון','19:00:00','20:00:00','פילאטיס מזרן קלאסי',8,0),
+('ראשון','20:00:00','21:00:00','פילאטיס מזרן קלאסי',8,0),
+
+('שני','07:30:00','08:30:00','פילאטיס מזרן קלאסי',8,0),
+('שני','08:30:00','09:30:00','פילאטיס מזרן קלאסי',8,0),
+('שני','19:30:00','20:30:00','פילאטיס מזרן קלאסי',8,0),
+
+('שלישי','07:30:00','08:30:00','פילאטיס מזרן קלאסי',8,0),
+
+('רביעי','18:00:00','19:00:00','פילאטיס מזרן קלאסי',8,0),
+('רביעי','19:00:00','20:00:00','פילאטיס מזרן קלאסי',8,0),
+('רביעי','20:00:00','21:00:00','פילאטיס מזרן קלאסי',8,0),
+
+('חמישי','07:30:00','08:30:00','פילאטיס מזרן קלאסי',8,0),
+('חמישי','08:30:00','09:30:00','פילאטיס מזרן קלאסי',8,0),
+
+('שישי','08:00:00','09:00:00','פילאטיס מזרן קלאסי',8,0),
+('שישי','09:00:00','10:00:00','פילאטיס מזרן קלאסי',8,0);
 
 
 -- יצירת טבלת הודעות
